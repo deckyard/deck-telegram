@@ -51,7 +51,7 @@ func answerOne(srv as httpd.Server, reply as string) {
  * @return {map of string to string} the decoded form
  */
 func formOf(seen as Seen) {
-    return uri.parseQuery(convert.stringFromBytes($seen.body, "utf-8"));
+    return uri.parseQuery(convert.stringFromBytes("utf-8", $seen.body));
 }
 
 /**
@@ -166,7 +166,7 @@ func testParseCallbackQueryAbsent() {
 }
 
 func testBuildUpload() {
-    def data as bytes init convert.bytesFromString("PNGDATA", "utf-8");
+    def data as bytes init convert.bytesFromString("utf-8", "PNGDATA");
     def form as multipart.Built init buildUpload("photo", -1001, "pic.png", "image/png", $data);
     testing.assertTrue(strings.contains($form.contentType, "multipart/form-data; boundary="));
     # Round-trip the built body back through multipart.parse to assert its shape.
@@ -360,7 +360,7 @@ func testTransportErrorHidesTheToken() {
 func testFileUploadsSendMultipart() {
     def dir as string init fs.makeTempDir(os.tempDir(), "telegram-test");
     def file as string init $dir + "/report.txt";
-    fs.writeBytes($file, convert.bytesFromString("REPORT", "utf-8"));
+    fs.writeBytes($file, convert.bytesFromString("utf-8", "REPORT"));
     def srv as httpd.Server init httpd.listen("127.0.0.1:0");
     defer httpd.shutdown($srv);
     def t as task of Seen init spawn {
