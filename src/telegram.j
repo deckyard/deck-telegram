@@ -10,8 +10,10 @@
  * (`slack` / `discord` / `gotify`): `getUpdates` drives a stateful receive loop
  * where the caller advances the `offset` past each processed update.
  *
- * Needs the default `jennifer` binary (uses `net` via `http`). An API error
- * (`{"ok": false, ...}`) throws `Error{kind: "telegram"}`. The bot token is a
+ * Needs the default `jennifer` binary (uses `net` via `http`). Every failure
+ * throws a `telegram.TelegramError` (kind `"telegram"`); an API error
+ * (`{"ok": false, ...}`) carries Telegram's `errorCode` and, under flood
+ * control (429), the `retryAfter` seconds to wait. The bot token is a
  * secret belonging to the caller - read it from the environment; never commit
  * it.
  *
@@ -119,8 +121,50 @@ export def struct CallbackQuery {
     messageId as int
 };
 
+/**
+ * A failed call or parse. Every error of kind `"telegram"` is one, so its fields
+ * are safe to read once the kind matches.
+ * @field kind {string} always `"telegram"`
+ * @field message {string} `telegram: ` and Telegram's description, or what went wrong
+ * @field errorCode {int} Telegram's `error_code` (400, 403, 429, ...); 0 when the failure is not an API error
+ * @field retryAfter {int} under flood control, the seconds to wait before retrying (`parameters.retry_after`); 0 otherwise
+ * @field migrateToChatId {int} when a group became a supergroup, its new chat id (`parameters.migrate_to_chat_id`); 0 otherwise
+ * @field status {int} the HTTP status of the reply; 0 when no reply was read
+ * @example
+ * try {
+ *     telegram.sendMessage($bot, $chat, "hi");
+ * } catch (e) {
+ *     if ($e.kind == "telegram" and $e.retryAfter > 0) {
+ *         time.sleep(time.fromSeconds($e.retryAfter));
+ *     } else {
+ *         throw $e;
+ *     }
+ * }
+ */
+export def struct TelegramError {
+    kind as string,
+    message as string,
+    errorCode as int,
+    retryAfter as int,
+    migrateToChatId as int,
+    status as int
+};
+
 func fail(msg as string) {
-    throw Error{kind: "telegram", message: "telegram: " + $msg};
+    failStatus($msg, 0);
+}
+
+# failStatus throws a TelegramError for a reply that is not an API error,
+# keeping its HTTP status.
+func failStatus(msg as string, status as int) {
+    throw TelegramError{
+        kind: "telegram",
+        message: "telegram: " + $msg,
+        errorCode: 0,
+        retryAfter: 0,
+        migrateToChatId: 0,
+        status: $status
+    };
 }
 
 # malformed rethrows an error caught while reading a response: a telegram
@@ -191,8 +235,10 @@ func formEncode(params as map of string to string) {
 
 # --- request core (private) -------------------------------------------------
 
-# checkResponse throws when the API reports `{"ok": false, ...}`.
-func checkResponse(node as json.Value) {
+# checkResponse throws a TelegramError when the API reports `{"ok": false,
+# ...}`, with its error_code, the retry_after / migrate_to_chat_id parameters,
+# and the reply's HTTP status.
+func checkResponse(node as json.Value, status as int) {
     def ok as bool init false;
     try {
         $ok = json.asBool($node, "/ok");
@@ -201,10 +247,33 @@ func checkResponse(node as json.Value) {
     }
     if (not $ok) {
         def desc as string init "request failed";
-        if (json.has($node, "/description")) {
-            $desc = json.asString($node, "/description");
+        def code as int init 0;
+        def retry as int init 0;
+        def migrate as int init 0;
+        try {
+            if (json.has($node, "/description")) {
+                $desc = json.asString($node, "/description");
+            }
+            if (json.has($node, "/error_code")) {
+                $code = json.asInt($node, "/error_code");
+            }
+            if (json.has($node, "/parameters/retry_after")) {
+                $retry = json.asInt($node, "/parameters/retry_after");
+            }
+            if (json.has($node, "/parameters/migrate_to_chat_id")) {
+                $migrate = json.asInt($node, "/parameters/migrate_to_chat_id");
+            }
+        } catch (e) {
+            malformed($e);
         }
-        fail($desc);
+        throw TelegramError{
+            kind: "telegram",
+            message: "telegram: " + $desc,
+            errorCode: $code,
+            retryAfter: $retry,
+            migrateToChatId: $migrate,
+            status: $status
+        };
     }
 }
 
@@ -230,12 +299,12 @@ func call(b as Bot, method as string, params as map of string to string, timeout
     try {
         $node = json.decode($resp.body);
     } catch (e) {
-        fail("non-JSON response (HTTP {$resp.status})");
+        failStatus("non-JSON response (HTTP {$resp.status})", $resp.status);
     }
     if (not json.has($node, "/ok")) {
-        fail("malformed response: missing 'ok' field (HTTP {$resp.status})");
+        failStatus("malformed response: missing 'ok' field (HTTP {$resp.status})", $resp.status);
     }
-    checkResponse($node);
+    checkResponse($node, $resp.status);
     return $node;
 }
 
@@ -258,12 +327,12 @@ func callMultipart(b as Bot, method as string, form as multipart.Built, timeoutM
     try {
         $node = json.decode($resp.body);
     } catch (e) {
-        fail("non-JSON response (HTTP {$resp.status})");
+        failStatus("non-JSON response (HTTP {$resp.status})", $resp.status);
     }
     if (not json.has($node, "/ok")) {
-        fail("malformed response: missing 'ok' field (HTTP {$resp.status})");
+        failStatus("malformed response: missing 'ok' field (HTTP {$resp.status})", $resp.status);
     }
-    checkResponse($node);
+    checkResponse($node, $resp.status);
     return $node;
 }
 
@@ -361,7 +430,7 @@ func parseUpdates(node as json.Value) {
  * value to `parseCallbackQuery`.
  * @param update {json.Value} the decoded update object
  * @return {Update} the update id and its message, if it carries one
- * @throws {Error} kind "telegram" when `update_id` is missing or a field has the wrong type
+ * @throws {TelegramError} kind "telegram" when `update_id` is missing or a field has the wrong type
  */
 export func parseUpdate(update as json.Value) {
     def updateId as int init 0;
@@ -388,7 +457,7 @@ export func parseUpdate(update as json.Value) {
  * catch malformed updates by the module's own error kind.
  * @param update {json.Value} the decoded update object
  * @return {CallbackQuery} the parsed callback query (zero-valued fields when absent)
- * @throws {Error} kind "telegram" when a present sub-field has the wrong type
+ * @throws {TelegramError} kind "telegram" when a present sub-field has the wrong type
  */
 export func parseCallbackQuery(update as json.Value) {
     def base as string init "/callback_query";
@@ -507,7 +576,7 @@ export func buildUpload(
  * Fetch the bot's own identity (a good connectivity / token check).
  * @param b {Bot} the bot
  * @return {User} the bot user
- * @throws {Error} kind "telegram" on an API error
+ * @throws {TelegramError} kind "telegram" on an API error
  */
 export func getMe(b as Bot) {
     def params as map of string to string init {};
@@ -520,7 +589,7 @@ export func getMe(b as Bot) {
  * @param chatId {int} the target chat id
  * @param text {string} the message text
  * @return {Message} the sent message
- * @throws {Error} kind "telegram" on an API error
+ * @throws {TelegramError} kind "telegram" on an API error
  */
 export func sendMessage(b as Bot, chatId as int, text as string) {
     def params as map of string to string init {};
@@ -537,7 +606,7 @@ export func sendMessage(b as Bot, chatId as int, text as string) {
  * @param text {string} the message text
  * @param parseMode {string} the parse mode
  * @return {Message} the sent message
- * @throws {Error} kind "telegram" on an API error
+ * @throws {TelegramError} kind "telegram" on an API error
  */
 export func sendMessageWith(b as Bot, chatId as int, text as string, parseMode as string) {
     def params as map of string to string init {};
@@ -556,7 +625,7 @@ export func sendMessageWith(b as Bot, chatId as int, text as string, parseMode a
  * @param photo {string} a photo URL or a Telegram file id
  * @param caption {string} the caption ("" for none)
  * @return {Message} the sent message
- * @throws {Error} kind "telegram" on an API error
+ * @throws {TelegramError} kind "telegram" on an API error
  */
 export func sendPhoto(b as Bot, chatId as int, photo as string, caption as string) {
     def params as map of string to string init {};
@@ -574,7 +643,7 @@ export func sendPhoto(b as Bot, chatId as int, photo as string, caption as strin
  * @param chatId {int} the target chat id
  * @param action {string} the action
  * @return {bool} true on success
- * @throws {Error} kind "telegram" on an API error
+ * @throws {TelegramError} kind "telegram" on an API error
  */
 export func sendChatAction(b as Bot, chatId as int, action as string) {
     def params as map of string to string init {};
@@ -592,7 +661,7 @@ export func sendChatAction(b as Bot, chatId as int, action as string) {
  * @param text {string} the message text
  * @param rows {list of list of Button} the inline-keyboard rows
  * @return {Message} the sent message
- * @throws {Error} kind "telegram" on an API error
+ * @throws {TelegramError} kind "telegram" on an API error
  */
 export func sendMessageWithKeyboard(
     b as Bot,
@@ -613,7 +682,7 @@ export func sendMessageWithKeyboard(
  * @param callbackId {string} the `CallbackQuery.id` to answer
  * @param text {string} a short notification ("" for none)
  * @return {bool} true on success
- * @throws {Error} kind "telegram" on an API error
+ * @throws {TelegramError} kind "telegram" on an API error
  */
 export func answerCallbackQuery(b as Bot, callbackId as string, text as string) {
     def params as map of string to string init {};
@@ -634,7 +703,7 @@ export func answerCallbackQuery(b as Bot, callbackId as string, text as string) 
  * @param filePath {string} the local file path
  * @param contentType {string} the file's MIME type ("" to let Telegram sniff)
  * @return {Message} the sent message
- * @throws {Error} kind "telegram" on an API error (token-redacted)
+ * @throws {TelegramError} kind "telegram" on an API error (token-redacted)
  */
 export func sendPhotoFile(b as Bot, chatId as int, filePath as string, contentType as string) {
     def data as bytes init fs.readBytes($filePath);
@@ -656,7 +725,7 @@ export func sendPhotoFile(b as Bot, chatId as int, filePath as string, contentTy
  * @param filePath {string} the local file path
  * @param contentType {string} the file's MIME type ("" to let Telegram sniff)
  * @return {Message} the sent message
- * @throws {Error} kind "telegram" on an API error (token-redacted)
+ * @throws {TelegramError} kind "telegram" on an API error (token-redacted)
  */
 export func sendDocumentFile(b as Bot, chatId as int, filePath as string, contentType as string) {
     def data as bytes init fs.readBytes($filePath);
@@ -680,7 +749,7 @@ export func sendDocumentFile(b as Bot, chatId as int, filePath as string, conten
  * @param offset {int} the first update id to fetch (last processed + 1)
  * @param timeout {int} the long-poll timeout in seconds
  * @return {list of Update} the pending updates (empty when none arrived)
- * @throws {Error} kind "telegram" on an API error
+ * @throws {TelegramError} kind "telegram" on an API error
  */
 export func getUpdates(b as Bot, offset as int, timeout as int) {
     def params as map of string to string init {};
@@ -697,7 +766,7 @@ export func getUpdates(b as Bot, offset as int, timeout as int) {
  * @param offset {int} the first update id to fetch (last processed + 1)
  * @param timeout {int} the long-poll timeout in seconds
  * @return {list of json.Value} the pending updates, one decoded object each
- * @throws {Error} kind "telegram" on an API error
+ * @throws {TelegramError} kind "telegram" on an API error
  */
 export func getUpdatesRaw(b as Bot, offset as int, timeout as int) {
     def params as map of string to string init {};

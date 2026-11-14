@@ -10,8 +10,8 @@ Every export of `@jennifer/telegram`. Background is in
 import "@jennifer/telegram/" as telegram;
 ```
 
-API calls throw `Error{kind: "telegram"}` on `{"ok": false}`, a non-JSON reply
-or a transport failure, with the token removed from the message.
+API calls throw a `TelegramError` (kind `"telegram"`) on `{"ok": false}`, a
+non-JSON reply or a transport failure, with the token removed from the message.
 
 ## Types
 
@@ -64,6 +64,19 @@ or a transport failure, with the token removed from the message.
 | `from as User` | who pressed the button |
 | `data as string` | the button's callback data |
 | `messageId as int` | message the button belongs to, 0 if absent |
+
+### `TelegramError`
+
+Every error of kind `"telegram"`.
+
+| Field | Meaning |
+|---|---|
+| `kind as string` | always `"telegram"` |
+| `message as string` | `telegram: ` and Telegram's description, or what went wrong |
+| `errorCode as int` | Telegram's `error_code` (400, 403, 429, ...); 0 when not an API error |
+| `retryAfter as int` | under flood control, seconds to wait before retrying; 0 otherwise |
+| `migrateToChatId as int` | a group's new supergroup chat id; 0 otherwise |
+| `status as int` | the reply's HTTP status; 0 when none was read |
 
 ## Bots
 

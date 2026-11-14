@@ -76,16 +76,49 @@ func testCheckResponseThrowsOnError() {
         '"description":"Unauthorized"}');
     def threw as bool init false;
     try {
-        checkResponse($node);
+        checkResponse($node, 401);
     } catch (e) {
         $threw = true;
         testing.assertEqual($e.kind, "telegram");
+        testing.assertEqual($e.errorCode, 401);
+        testing.assertEqual($e.status, 401);
+        testing.assertEqual($e.retryAfter, 0);
+        testing.assertEqual($e.message, "telegram: Unauthorized");
     }
     testing.assertTrue($threw);
 }
 
+# Flood control and a migrated group carry their parameters into the error.
+func testApiErrorsCarryTheirParameters() {
+    try {
+        checkResponse(
+            json.decode('{"ok":false,"error_code":429,"description":"Too Many Requests: retry after 35",' +
+                '"parameters":{"retry_after":35}}'),
+            429);
+        throw Error{kind: "missed", message: "a 429"};
+    } catch (e) {
+        testing.assertEqual($e.errorCode, 429);
+        testing.assertEqual($e.retryAfter, 35);
+    }
+    try {
+        checkResponse(
+            json.decode('{"ok":false,"error_code":400,"description":"Bad Request: group chat was upgraded",' +
+                '"parameters":{"migrate_to_chat_id":-1001234567890}}'),
+            400);
+        throw Error{kind: "missed", message: "a migrated group"};
+    } catch (e) {
+        testing.assertEqual($e.migrateToChatId, -1001234567890);
+    }
+    try {
+        fail("local");
+    } catch (e) {
+        testing.assertEqual($e.errorCode, 0);
+        testing.assertEqual($e.status, 0);
+    }
+}
+
 func testCheckResponseOkPasses() {
-    checkResponse(json.decode('{"ok":true,"result":{}}'));
+    checkResponse(json.decode('{"ok":true,"result":{}}'), 200);
     testing.assertTrue(true);
 }
 
@@ -445,7 +478,7 @@ func resultNotAList() {
 }
 
 func okNotABool() {
-    checkResponse(json.decode('{"ok":"yes"}'));
+    checkResponse(json.decode('{"ok":"yes"}'), 200);
 }
 
 func resultNotABool() {

@@ -115,10 +115,28 @@ while (true) {
 
 ## Errors
 
-Every API call throws `Error{kind: "telegram"}` when Telegram answers
-`{"ok": false}` (the message is Telegram's `description`), when the reply is not
-JSON or has a field of the wrong type, or when the request fails in transport. Transport errors have the token
-removed from the message; `redactToken` does the same for your own logs.
+Every API call throws a `telegram.TelegramError` (kind `"telegram"`) when
+Telegram answers `{"ok": false}` (the message is Telegram's `description`), when
+the reply is not JSON or has a field of the wrong type, or when the request fails
+in transport. Transport errors have the token removed from the message;
+`redactToken` does the same for your own logs.
+
+An API error carries Telegram's `errorCode`, the reply's HTTP `status`, and its
+parameters: `retryAfter` under flood control (429), `migrateToChatId` when a
+group became a supergroup. Every error of kind `"telegram"` is a
+`TelegramError`, so the fields are safe to read once the kind matches:
+
+```jennifer
+try {
+    telegram.sendMessage($bot, $chat, "hi");
+} catch (e) {
+    if ($e.kind == "telegram" and $e.retryAfter > 0) {
+        time.sleep(time.fromSeconds($e.retryAfter));
+    } else {
+        throw $e;
+    }
+}
+```
 
 ## Runtime
 
