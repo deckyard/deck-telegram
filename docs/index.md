@@ -106,7 +106,7 @@ while (true) {
         def cq as telegram.CallbackQuery init telegram.parseCallbackQuery($raw);
         if ($cq.id != "") {
             telegram.answerCallbackQuery($bot, $cq.id, "got " + $cq.data);
-        } else if ($u.hasMessage) {
+        } elseif ($u.hasMessage) {
             telegram.sendMessage($bot, $u.message.chatId, "you said: " + $u.message.text);
         }
     }
@@ -118,8 +118,9 @@ while (true) {
 Every API call throws a `telegram.TelegramError` (kind `"telegram"`) when
 Telegram answers `{"ok": false}` (the message is Telegram's `description`), when
 the reply is not JSON or has a field of the wrong type, or when the request fails
-in transport. Transport errors have the token removed from the message;
-`redactToken` does the same for your own logs.
+in transport. A reply over `http`'s body cap is the generic kind `"limit"`
+instead. Transport errors, that one included, have the token removed from the
+message; `redactToken` does the same for your own logs.
 
 An API error carries Telegram's `errorCode`, the reply's HTTP `status`, and its
 parameters: `retryAfter` under flood control (429), `migrateToChatId` when a
