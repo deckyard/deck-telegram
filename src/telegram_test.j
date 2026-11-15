@@ -374,7 +374,9 @@ func testNonJsonReplyThrows() {
     testing.assertTrue($threw);
 }
 
-func testTransportErrorHidesTheToken() {
+# A refused connection is http's net.NetError (kind "net"), passed on with its
+# fields readable and no token in its message.
+func testARefusedConnectionIsANetError() {
     # Nothing listens once the server is shut down, so the POST fails in http.
     def srv as httpd.Server init httpd.listen("127.0.0.1:0");
     def b as Bot init localBot($srv);
@@ -384,10 +386,52 @@ func testTransportErrorHidesTheToken() {
         getMe($b);
     } catch (e) {
         $threw = true;
-        testing.assertEqual($e.kind, "telegram");
+        testing.assertEqual($e.kind, "net");
+        testing.assertEqual($e.reason, "refused");
+        testing.assertEqual($e.op, "connect");
+        testing.assertFalse($e.sent);
         testing.assertTrue(not strings.contains($e.message, "TESTTOKEN"));
     }
     testing.assertTrue($threw);
+}
+
+# netFailed keeps a NetError's kind and fields and redacts the token from its
+# message, should one ever carry it.
+func testANetErrorNeverCarriesTheToken() {
+    def srv as httpd.Server init httpd.listen("127.0.0.1:0");
+    def addr as string init httpd.address($srv);
+    httpd.shutdown($srv);
+    try {
+        http.get("http://" + $addr + "/bot" + TOKEN + "/getMe", {});
+        throw Error{kind: "missed", message: "a refused connection"};
+    } catch (e) {
+        testing.assertEqual($e.kind, "net");
+        try {
+            netFailed($e, TOKEN);
+            throw Error{kind: "missed", message: "netFailed returned"};
+        } catch (f) {
+            testing.assertEqual($f.kind, "net");
+            testing.assertEqual($f.reason, $e.reason);
+            testing.assertEqual($f.op, $e.op);
+            testing.assertTrue(not strings.contains($f.message, "TESTTOKEN"));
+        }
+    }
+}
+
+# A reply past json's nesting cap is kind "limit", not a TelegramError.
+func testADecodingCapIsALimit() {
+    def srv as httpd.Server init httpd.listen("127.0.0.1:0");
+    defer httpd.shutdown($srv);
+    def t as task of Seen init spawn {
+        return answerOne($srv, strings.repeat("[", 1001));
+    };
+    try {
+        getMe(localBot($srv));
+        throw Error{kind: "missed", message: "a decoding cap"};
+    } catch (e) {
+        testing.assertEqual($e.kind, "limit");
+    }
+    task.wait($t);
 }
 
 func testFileUploadsSendMultipart() {
@@ -517,5 +561,69 @@ func testRedactTokenPercentEncoded() {
             "GET /bot123456" + $colon + "ABC-secretpart/getMe",
             $token);
         testing.assertEqual($red, "GET /bot<redacted>/getMe");
+    }
+}
+
+# cutShort answers one request with half a status line and closes.
+func cutShort(listener as net.Listener) {
+    def c as net.Conn init net.accept($listener);
+    net.readBytes($c, 65536);
+    net.writeBytes($c, convert.bytesFromString("utf-8", "HTTP/1.1 200 OK\r\nContent-Le"));
+    net.close($c);
+}
+
+# stall reads one request and never answers; it returns when the client
+# gives up and closes.
+func stall(listener as net.Listener) {
+    def c as net.Conn init net.accept($listener);
+    net.readBytes($c, 65536);
+    try {
+        net.readBytes($c, 1);
+    } catch (e) { # lint-disable: L103
+        # the client closed: the stall is over
+    }
+    net.close($c);
+}
+
+# A connection closed mid-answer is kind "closed" and a deadline kind
+# "timeout", not a TelegramError; the token stays out of both messages.
+func testClosedAndTimeoutKeepTheirKinds() {
+    def listener as net.Listener init net.listen("127.0.0.1:0");
+    def b as Bot init botWith(TOKEN, "http://" + net.address($listener));
+    def cut as task of null init spawn {
+        cutShort($listener);
+    };
+    try {
+        call($b, "getMe", {}, 2000);
+        throw Error{kind: "missed", message: "a cut answer"};
+    } catch (e) {
+        testing.assertEqual($e.kind, "closed");
+        testing.assertTrue(not strings.contains($e.message, "TESTTOKEN"));
+    }
+    task.wait($cut);
+    def slow as task of null init spawn {
+        stall($listener);
+    };
+    try {
+        call($b, "getMe", {}, 300);
+        throw Error{kind: "missed", message: "a deadline"};
+    } catch (e) {
+        testing.assertEqual($e.kind, "timeout");
+        testing.assertTrue(not strings.contains($e.message, "TESTTOKEN"));
+    }
+    task.wait($slow);
+    net.close($listener);
+}
+
+# transportFailed keeps a generic kind and redacts the token from its message.
+func testTransportFailedRedactsAGenericKind() {
+    try {
+        transportFailed(
+            Error{kind: "timeout", message: "GET /bot" + TOKEN + "/getMe timed out"},
+            TOKEN);
+        throw Error{kind: "missed", message: "transportFailed returned"};
+    } catch (e) {
+        testing.assertEqual($e.kind, "timeout");
+        testing.assertEqual($e.message, "telegram: GET /bot<redacted>/getMe timed out");
     }
 }

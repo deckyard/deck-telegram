@@ -12,6 +12,9 @@ import "@jennifer/telegram/" as telegram;
 
 API calls throw a `TelegramError` (kind `"telegram"`) on `{"ok": false}`, a
 non-JSON reply or a transport failure, with the token removed from the message.
+A socket failure is `http`'s `net.NetError` (kind `"net"`); a reached cap, a
+deadline, a connection closed mid-answer and a cancelled task keep their kinds
+`"limit"`, `"timeout"`, `"closed"` and `"cancelled"`.
 
 ## Types
 

@@ -11,7 +11,11 @@
  * where the caller advances the `offset` past each processed update.
  *
  * Needs the default `jennifer` binary (uses `net` via `http`). Every failure
- * throws a `telegram.TelegramError` (kind `"telegram"`); an API error
+ * throws a `telegram.TelegramError` (kind `"telegram"`), except the generic
+ * kinds: a socket failure is `http`'s `net.NetError` (kind `"net"`, its
+ * message names the host and port only, the token redacted all the same), a
+ * reached cap kind `"limit"`, a deadline `"timeout"`, a connection closed
+ * mid-answer `"closed"`, a cancelled task `"cancelled"`. An API error
  * (`{"ok": false, ...}`) carries Telegram's `errorCode` and, under flood
  * control (429), the `retryAfter` seconds to wait. The bot token is a
  * secret belonging to the caller - read it from the environment; never commit
@@ -31,6 +35,8 @@ use json;
 use strings;
 use convert;
 use fs;
+use lists;
+use net;
 use path;
 import "http.j" as http;
 import "multipart.j" as multipart;
@@ -41,6 +47,11 @@ import "uri.j" as uri;
 def const DEFAULT_BASE as string init "https://api.telegram.org";
 # Request timeout for the non-polling verbs, in milliseconds.
 def const DEFAULT_TIMEOUT_MS as int init 30000;
+
+# The generic error kinds a transport failure keeps (its message gets the
+# token redacted): a reached cap, a deadline, a connection closed mid-answer,
+# a cancelled task. A socket failure (kind "net") goes through netFailed.
+def const GENERIC_KINDS as list of string init ["limit", "timeout", "closed", "cancelled"];
 
 /**
  * A bot: an API token and the API base URL.
@@ -154,14 +165,26 @@ func fail(msg as string) {
     failStatus($msg, 0);
 }
 
-# transportFailed rethrows an http failure with the token redacted: kind
-# "limit" for http's body cap (the generic kind for a reached cap), otherwise
-# a TelegramError.
+# transportFailed rethrows an http failure with the token redacted: a
+# generic kind (GENERIC_KINDS: http's body cap, a deadline, a connection
+# closed mid-answer, a cancelled task) keeps its kind, anything else
+# (malformed framing) becomes a TelegramError. A net.NetError never reaches it (`e` is an Error): the
+# callers hand kind "net" to netFailed first.
 func transportFailed(e as Error, token as string) {
-    if ($e.kind == "limit") {
-        throw Error{kind: "limit", message: "telegram: " + redactToken($e.message, $token)};
+    if (lists.contains(GENERIC_KINDS, $e.kind)) {
+        throw Error{kind: $e.kind, message: "telegram: " + redactToken($e.message, $token)};
     }
     fail(redactToken($e.message, $token));
+}
+
+# netFailed rethrows http's net.NetError (a socket failure) with its kind and
+# fields intact. Its message names the host and port, never the path that
+# holds the token; it is redacted all the same, so no transport error can
+# carry the token.
+func netFailed(e as net.NetError, token as string) {
+    def out as net.NetError init $e;
+    $out.message = redactToken($e.message, $token);
+    throw $out;
 }
 
 # failStatus throws a TelegramError for a reply that is not an API error,
@@ -301,6 +324,9 @@ func call(b as Bot, method as string, params as map of string to string, timeout
     try {
         $resp = http.requestWith("POST", $url, $headers, formEncode($params), $timeoutMs, 0);
     } catch (e) {
+        if ($e.kind == "net") {
+            netFailed($e, $b.token);
+        }
         transportFailed($e, $b.token);
     }
     # A proxy error page (502 HTML, auth portal) isn't JSON: decode under a
@@ -309,6 +335,10 @@ func call(b as Bot, method as string, params as map of string to string, timeout
     try {
         $node = json.decode($resp.body);
     } catch (e) {
+        # a decoding cap stays kind "limit"
+        if ($e.kind == "limit") {
+            throw $e;
+        }
         failStatus("non-JSON response (HTTP {$resp.status})", $resp.status);
     }
     if (not json.has($node, "/ok")) {
@@ -331,12 +361,19 @@ func callMultipart(b as Bot, method as string, form as multipart.Built, timeoutM
     try {
         $resp = http.requestRawBody("POST", $url, $headers, $form.body, $timeoutMs, 0);
     } catch (e) {
+        if ($e.kind == "net") {
+            netFailed($e, $b.token);
+        }
         transportFailed($e, $b.token);
     }
     def node as json.Value;
     try {
         $node = json.decode($resp.body);
     } catch (e) {
+        # a decoding cap stays kind "limit"
+        if ($e.kind == "limit") {
+            throw $e;
+        }
         failStatus("non-JSON response (HTTP {$resp.status})", $resp.status);
     }
     if (not json.has($node, "/ok")) {

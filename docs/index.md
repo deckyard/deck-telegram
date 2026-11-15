@@ -118,9 +118,14 @@ while (true) {
 Every API call throws a `telegram.TelegramError` (kind `"telegram"`) when
 Telegram answers `{"ok": false}` (the message is Telegram's `description`), when
 the reply is not JSON or has a field of the wrong type, or when the request fails
-in transport. A reply over `http`'s body cap is the generic kind `"limit"`
-instead. Transport errors, that one included, have the token removed from the
-message; `redactToken` does the same for your own logs.
+in transport with malformed framing. The generic kinds go on instead: a socket
+failure (refused or reset, DNS, TLS) is `http`'s `net.NetError` (kind `"net"`,
+with `op`, `reason`, `sent` and `replied`), a reply over `http`'s body cap or
+past `json`'s decoding caps is kind `"limit"`, a deadline (a long poll that
+outlives its read deadline included) `"timeout"`, a connection closed
+mid-answer `"closed"`, a cancelled task `"cancelled"`. Transport errors,
+those included, have the token removed from the message; `redactToken` does
+the same for your own logs.
 
 An API error carries Telegram's `errorCode`, the reply's HTTP `status`, and its
 parameters: `retryAfter` under flood control (429), `migrateToChatId` when a
