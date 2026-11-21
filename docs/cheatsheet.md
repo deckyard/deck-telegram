@@ -115,8 +115,8 @@ Every error of kind `"telegram"`.
 
 | Function | Returns | Notes |
 |---|---|---|
-| `telegram.getUpdates(b, offset, timeout)` | `list of Update` | long poll, `timeout` in seconds; text messages only |
-| `telegram.getUpdatesRaw(b, offset, timeout)` | `list of json.Value` | the same poll, every update as decoded JSON |
+| `telegram.getUpdates(b, offset, timeoutSec)` | `list of Update` | long poll, `timeoutSec` in seconds; text messages only |
+| `telegram.getUpdatesRaw(b, offset, timeoutSec)` | `list of json.Value` | the same poll, every update as decoded JSON |
 | `telegram.parseUpdate(update)` | `Update` | one raw update; throws `telegram` without `update_id` |
 
 ## Helpers
