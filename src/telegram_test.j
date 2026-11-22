@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-3.0-only
 # SPDX-FileCopyrightText: Copyright (C) 2026 mplx <mplx@jennifer-lang.dev>
-# pragma-jennifer-version: >=0.26.0
+# pragma-jennifer-version: >=0.27.0
 
 /**
  * White-box tests for telegram: jennifer test src/telegram_test.j
@@ -10,6 +10,7 @@
  * which answers one request with a canned Bot API reply and hands back what it
  * received.
  */
+use encoding;
 use httpd;
 use os;
 use task;
@@ -51,7 +52,7 @@ func answerOne(srv as httpd.Server, reply as string) {
  * @return {map of string to string} the decoded form
  */
 func formOf(seen as Seen) {
-    return uri.parseQuery(convert.stringFromBytes("utf-8", $seen.body));
+    return uri.parseQuery(encoding.decode("utf-8", $seen.body));
 }
 
 /**
@@ -199,7 +200,7 @@ func testParseCallbackQueryAbsent() {
 }
 
 func testBuildUpload() {
-    def data as bytes init convert.bytesFromString("utf-8", "PNGDATA");
+    def data as bytes init encoding.encode("utf-8", "PNGDATA");
     def form as multipart.Built init buildUpload("photo", -1001, "pic.png", "image/png", $data);
     testing.assertTrue(strings.contains($form.contentType, "multipart/form-data; boundary="));
     # Round-trip the built body back through multipart.parse to assert its shape.
@@ -423,7 +424,7 @@ func testADecodingCapIsALimit() {
     def srv as httpd.Server init httpd.listen("127.0.0.1:0");
     defer httpd.shutdown($srv);
     def t as task of Seen init spawn {
-        return answerOne($srv, strings.repeat("[", 1001));
+        return answerOne($srv, strings.replicate("[", 1001));
     };
     try {
         getMe(localBot($srv));
@@ -437,7 +438,7 @@ func testADecodingCapIsALimit() {
 func testFileUploadsSendMultipart() {
     def dir as string init fs.makeTempDir(os.tempDir(), "telegram-test");
     def file as string init $dir + "/report.txt";
-    fs.writeBytes($file, convert.bytesFromString("utf-8", "REPORT"));
+    fs.writeBytes($file, encoding.encode("utf-8", "REPORT"));
     def srv as httpd.Server init httpd.listen("127.0.0.1:0");
     defer httpd.shutdown($srv);
     def t as task of Seen init spawn {
@@ -568,7 +569,7 @@ func testRedactTokenPercentEncoded() {
 func cutShort(listener as net.Listener) {
     def c as net.Conn init net.accept($listener);
     net.readBytes($c, 65536);
-    net.writeBytes($c, convert.bytesFromString("utf-8", "HTTP/1.1 200 OK\r\nContent-Le"));
+    net.writeBytes($c, encoding.encode("utf-8", "HTTP/1.1 200 OK\r\nContent-Le"));
     net.close($c);
 }
 

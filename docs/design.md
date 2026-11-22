@@ -113,8 +113,9 @@ otherwise, so CI runs it offline.
 
 ## Dependencies on the interpreter
 
-- The floor is `>=0.26.0`, the release that deprecates the bundled module
-  (M30.1).
+- The floor is `>=0.27.0`, for the UTF-8 codecs of `encoding.encode` /
+  `decode` and `strings.replicate`; the bundled module is deprecated from
+  0.26.0 (M30.1).
 - `http.requestRawBody` for binary uploads, and `multipart`, both of which
   stay in the interpreter after the bundled modules are removed.
 - Thrown error structs (M28.50, M28.51); kind `"limit"` for caps (M28.54,
