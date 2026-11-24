@@ -3,7 +3,7 @@
 
 # @jennifer/telegram
 
-A client for the [Telegram Bot API](https://core.telegram.org/bots/api) over
+A client for the [Telegram™ Bot API](https://core.telegram.org/bots/api) over
 Jennifer's `http` module: send messages, photos and files, attach inline
 keyboards, and poll for updates. The full API is on the
 [cheatsheet](cheatsheet.md).
@@ -165,3 +165,10 @@ import "@jennifer/telegram/" as telegram;     # after: jvc add @jennifer/telegra
 The deck adds `getUpdatesRaw` and `parseUpdate`, so button presses can be
 received at all. A reply with a field of the wrong type throws a `telegram`
 error where the module threw a `json` one.
+
+## Trademarks
+
+Telegram™ is a trademark of Telegram FZ-LLC. Other product and company names
+may be trademarks of their respective owners. They are used only to identify
+the products this deck works with. This deck is an independent project, not
+affiliated with, sponsored or endorsed by Telegram FZ-LLC.

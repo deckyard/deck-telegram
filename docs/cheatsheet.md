@@ -22,7 +22,7 @@ deadline, a connection closed mid-answer and a cancelled task keep their kinds
 
 | Field | Meaning |
 |---|---|
-| `token as string` | bot token from BotFather |
+| `token as string` | bot token from BotFather™ |
 | `baseUrl as string` | API base URL, no trailing slash |
 
 ### `User`
@@ -75,7 +75,7 @@ Every error of kind `"telegram"`.
 | Field | Meaning |
 |---|---|
 | `kind as string` | always `"telegram"` |
-| `message as string` | `telegram: ` and Telegram's description, or what went wrong |
+| `message as string` | `telegram: ` and Telegram™'s description, or what went wrong |
 | `errorCode as int` | Telegram's `error_code` (400, 403, 429, ...); 0 when not an API error |
 | `retryAfter as int` | under flood control, seconds to wait before retrying; 0 otherwise |
 | `migrateToChatId as int` | a group's new supergroup chat id; 0 otherwise |

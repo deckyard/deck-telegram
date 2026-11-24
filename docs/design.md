@@ -5,7 +5,7 @@
 
 ## Scope
 
-The deck is a client for the Telegram Bot API: a `Bot` (token and API base
+The deck is a client for the Telegram™ Bot API: a `Bot` (token and API base
 URL) sends messages (`sendMessage`, `sendMessageWith`,
 `sendMessageWithKeyboard`), photos by URL or file id (`sendPhoto`), local
 files (`sendPhotoFile`, `sendDocumentFile`) and chat actions, identifies

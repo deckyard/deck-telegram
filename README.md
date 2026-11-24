@@ -4,7 +4,7 @@
 [![Documentation](https://img.shields.io/badge/docs-github%20pages-blue)](https://jennifer-language.github.io/deck-telegram/)
 [![release](https://img.shields.io/github/v/release/jennifer-language/deck-telegram)](https://github.com/jennifer-language/deck-telegram/releases/latest)
 
-A [Telegram Bot API](https://core.telegram.org/bots/api) client for
+A [Telegram™ Bot API](https://core.telegram.org/bots/api) client for
 [Jennifer](https://jennifer-lang.dev/) programs: send messages, photos and
 files, attach inline keyboards, and poll for updates. Replaces the `telegram`
 module of Jennifer's standard library (shipped since 0.18.0, deprecated from
@@ -52,3 +52,10 @@ LGPL-3.0-only, see [LICENSE](LICENSE). Copyright (C) 2026 mplx &lt;mplx@jennifer
 
 `tools/check-headers.sh` checks every source file's SPDX header against
 `deck.toml`.
+
+## Trademarks
+
+Telegram™ is a trademark of Telegram FZ-LLC. Other product and company names
+may be trademarks of their respective owners. They are used only to identify
+the products this deck works with. This deck is an independent project, not
+affiliated with, sponsored or endorsed by Telegram FZ-LLC.
