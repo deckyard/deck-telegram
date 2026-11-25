@@ -1,7 +1,7 @@
-# Grimoire book configuration for the @jennifer/telegram documentation.
+# Grimoire book configuration for the @deckyard/telegram documentation.
 
 [book]
-title = "@jennifer/telegram"
+title = "@deckyard/telegram"
 description = "A Telegram Bot API client"
 language = "en"
 src = "docs"
@@ -18,10 +18,10 @@ navPosition = "left"
 tocPosition = "right"
 tocDepth = 3
 sectionNumbers = true
-titleUrl = "https://jennifer-language.github.io/deck-telegram/"
-repoUrl = "https://github.com/jennifer-language/deck-telegram"
+titleUrl = "https://deckyard.github.io/deck-telegram/"
+repoUrl = "https://github.com/deckyard/deck-telegram"
 repoLabel = "Source"
-editUrl = "https://github.com/jennifer-language/deck-telegram/edit/main/docs/{path}"
+editUrl = "https://github.com/deckyard/deck-telegram/edit/main/docs/{path}"
 
 [highlight]
 enabled = true

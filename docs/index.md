@@ -1,7 +1,7 @@
 <!-- SPDX-License-Identifier: LGPL-3.0-only -->
 <!-- SPDX-FileCopyrightText: Copyright (C) 2026 mplx <mplx@jennifer-lang.dev> -->
 
-# @jennifer/telegram
+# @deckyard/telegram
 
 A client for the [Telegram™ Bot API](https://core.telegram.org/bots/api) over
 Jennifer's `http` module: send messages, photos and files, attach inline
@@ -13,7 +13,7 @@ keyboards, and poll for updates. The full API is on the
 Snippets assume this import:
 
 ```jennifer
-import "@jennifer/telegram/" as telegram;
+import "@deckyard/telegram/" as telegram;
 ```
 
 The trailing slash resolves to the entry module.
@@ -149,6 +149,15 @@ try {
 Needs `net`, so it runs on the default `jennifer` binary. The stock
 `jennifer-tiny` has no network driver and every call throws.
 
+## Moving from `@jennifer/telegram`
+
+Up to 0.3.0 this deck was `@jennifer/telegram`. Change the `[decks]` entry to
+`"@deckyard/telegram" = "^0.4.0"` and the imports:
+
+```jennifer
+import "@deckyard/telegram/" as telegram;
+```
+
 ## Moving from the standard library module
 
 Jennifer has shipped `telegram` as a standard library module
@@ -159,7 +168,7 @@ types and functions; only the import changes:
 
 ```jennifer
 import "telegram.j" as telegram;              # before
-import "@jennifer/telegram/" as telegram;     # after: jvc add @jennifer/telegram
+import "@deckyard/telegram/" as telegram;     # after: jvc add @deckyard/telegram
 ```
 
 The deck adds `getUpdatesRaw` and `parseUpdate`, so button presses can be

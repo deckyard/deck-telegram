@@ -31,10 +31,10 @@ if (len($token) == 0 or len($chat) == 0) {
         def m as telegram.Message init telegram.sendMessage(
             $bot,
             $chatId,
-            "Hello from @jennifer/telegram");
+            "Hello from @deckyard/telegram");
         io.printf("sendMessage -> message %d\n", $m.messageId);
         def rows as list of list of telegram.Button init [
-            [telegram.urlButton("Docs", "https://jennifer-language.github.io/deck-telegram/")]
+            [telegram.urlButton("Docs", "https://deckyard.github.io/deck-telegram/")]
         ];
         def k as telegram.Message init telegram.sendMessageWithKeyboard(
             $bot,

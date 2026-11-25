@@ -1,8 +1,8 @@
-# @jennifer/telegram
+# @deckyard/telegram
 
-[![test](https://github.com/jennifer-language/deck-telegram/actions/workflows/test.yml/badge.svg)](https://github.com/jennifer-language/deck-telegram/actions/workflows/test.yml)
-[![Documentation](https://img.shields.io/badge/docs-github%20pages-blue)](https://jennifer-language.github.io/deck-telegram/)
-[![release](https://img.shields.io/github/v/release/jennifer-language/deck-telegram)](https://github.com/jennifer-language/deck-telegram/releases/latest)
+[![test](https://github.com/deckyard/deck-telegram/actions/workflows/test.yml/badge.svg)](https://github.com/deckyard/deck-telegram/actions/workflows/test.yml)
+[![Documentation](https://img.shields.io/badge/docs-github%20pages-blue)](https://deckyard.github.io/deck-telegram/)
+[![release](https://img.shields.io/github/v/release/deckyard/deck-telegram)](https://github.com/deckyard/deck-telegram/releases/latest)
 
 A [Telegram™ Bot API](https://core.telegram.org/bots/api) client for
 [Jennifer](https://jennifer-lang.dev/) programs: send messages, photos and
@@ -10,21 +10,24 @@ files, attach inline keyboards, and poll for updates. Replaces the `telegram`
 module of Jennifer's standard library (shipped since 0.18.0, deprecated from
 0.26.0, removed in 0.28.0); the API is unchanged, only the import differs.
 
-**[Documentation](https://jennifer-language.github.io/deck-telegram/)**
+Up to 0.3.0 this deck was `@jennifer/telegram`. To switch, change the `[decks]`
+entry to `"@deckyard/telegram" = "^0.4.0"` and the imports to `"@deckyard/telegram/"`.
+
+**[Documentation](https://deckyard.github.io/deck-telegram/)**
 
 ## Install
 
 ```sh
-jvc add @jennifer/telegram
+jvc add @deckyard/telegram
 ```
 
-This vendors the deck to `vendor/jennifer/telegram/`. Without `jvc`, unpack the
-`src/` subtree of a release archive (`jennifer-telegram-<version>.tar.gz`) there.
+This vendors the deck to `vendor/deckyard/telegram/`. Without `jvc`, unpack the
+`src/` subtree of a release archive (`deckyard-telegram-<version>.tar.gz`) there.
 
 ## Usage
 
 ```jennifer
-import "@jennifer/telegram/" as telegram;
+import "@deckyard/telegram/" as telegram;
 
 def bot as telegram.Bot init telegram.bot(os.getEnv("TELEGRAM_BOT_TOKEN"));
 telegram.sendMessage($bot, 12345678, "deploy finished");

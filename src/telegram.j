@@ -26,7 +26,7 @@
  * 0.23.0; deprecated from 0.26.0, removed in 0.28.0) with the same surface.
  * @module telegram
  * @example
- * import "@jennifer/telegram/" as telegram;
+ * import "@deckyard/telegram/" as telegram;
  * def bot as telegram.Bot init telegram.bot("123456:ABC-DEF...");
  * def m as telegram.Message init telegram.sendMessage($bot, 12345678, "hello from Jennifer");
  * def updates as list of telegram.Update init telegram.getUpdates($bot, 0, 30);

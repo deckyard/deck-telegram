@@ -3,11 +3,11 @@
 
 # telegram cheatsheet
 
-Every export of `@jennifer/telegram`. Background is in
+Every export of `@deckyard/telegram`. Background is in
 [the introduction](index.md).
 
 ```jennifer
-import "@jennifer/telegram/" as telegram;
+import "@deckyard/telegram/" as telegram;
 ```
 
 API calls throw a `TelegramError` (kind `"telegram"`) on `{"ok": false}`, a
