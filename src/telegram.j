@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: LGPL-3.0-only
 # SPDX-FileCopyrightText: Copyright (C) 2026 mplx <mplx@jennifer-lang.dev>
-# pragma-jennifer-version: >=0.27.0
+# pragma-jennifer-version: >=0.28.0
 
 /**
  * A Telegram Bot API client over the `http` client + `json`. Hold a `Bot`
@@ -31,7 +31,9 @@
  * def m as telegram.Message init telegram.sendMessage($bot, 12345678, "hello from Jennifer");
  * def updates as list of telegram.Update init telegram.getUpdates($bot, 0, 30);
  */
+use encoding;
 use json;
+use math;
 use strings;
 use convert;
 use fs;
@@ -322,7 +324,7 @@ func call(b as Bot, method as string, params as map of string to string, timeout
     # log or a caught Error never exposes the secret.
     def resp as http.Response;
     try {
-        $resp = http.requestWith("POST", $url, $headers, formEncode($params), $timeoutMs, 0);
+        $resp = http.send("POST", $url, $headers, formEncode($params), httpOptions($timeoutMs));
     } catch (e) {
         if ($e.kind == "net") {
             netFailed($e, $b.token);
@@ -359,7 +361,12 @@ func callMultipart(b as Bot, method as string, form as multipart.Built, timeoutM
     # reaches the wire intact - a UTF-8 string round-trip would corrupt it.
     def resp as http.Response;
     try {
-        $resp = http.requestRawBody("POST", $url, $headers, $form.body, $timeoutMs, 0);
+        $resp = textResponse(http.sendBytes(
+            "POST",
+            $url,
+            $headers,
+            $form.body,
+            httpOptions($timeoutMs)));
     } catch (e) {
         if ($e.kind == "net") {
             netFailed($e, $b.token);
@@ -820,4 +827,35 @@ export func getUpdatesRaw(b as Bot, offset as int, timeoutSec as int) {
     $params["offset"] = convert.toString($offset);
     $params["timeout"] = convert.toString($timeoutSec);
     return resultList(call($b, "getUpdates", $params, ($timeoutSec + 5) * 1000));
+}
+
+# httpOptions is the http.Options a positional timeout stands for: 0 means no
+# idle timeout, as it did for the positional calls; the body cap is the default.
+func httpOptions(timeoutMs as int) {
+    def o as http.Options;
+    $o.timeoutMs = $timeoutMs;
+    if ($timeoutMs == 0) {
+        $o.timeoutMs = math.MAX_INT;
+    }
+    return $o;
+}
+
+# textResponse is a byte response with its body decoded as UTF-8; a body that is
+# not valid UTF-8 throws kind "http".
+func textResponse(r as http.BytesResponse) {
+    def body as string;
+    try {
+        $body = encoding.decode("utf-8", $r.body);
+    } catch (e) {
+        throw Error{
+            kind: "http",
+            message: "http: response body is not valid UTF-8 (use the byte verbs)"
+        };
+    }
+    return http.Response{
+        status: $r.status,
+        statusText: $r.statusText,
+        headers: $r.headers,
+        body: $body
+    };
 }

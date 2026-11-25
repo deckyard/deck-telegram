@@ -13,4 +13,4 @@ homepage = "https://github.com/deckyard/deck-telegram"
 manual = "https://deckyard.github.io/deck-telegram/"
 
 [engines]
-jennifer = ">=0.27.0"
+jennifer = ">=0.28.0"

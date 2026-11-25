@@ -37,7 +37,7 @@ telegram.sendMessage($bot, 12345678, "deploy finished");
 
 ## Requirements
 
-Jennifer 0.27.0 or newer and network access to the Telegram Bot API. Calls need
+Jennifer 0.28.0 or newer and network access to the Telegram Bot API. Calls need
 the default `jennifer` binary; the stock `jennifer-tiny` has no network driver.
 
 ## Development
